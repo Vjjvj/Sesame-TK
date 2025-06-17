@@ -144,7 +144,6 @@ jobs:
             ${{ steps.sign_compatible_apk.outputs.signedFile }}
             CHECKSUMS-Sesame-Normal-${{ steps.extract_info.outputs.version }}.${{ env.SHORT_SHA }}-signed.apk.sha256
             CHECKSUMS-Sesame-Compatible-${{ steps.extract_info.outputs.version }}.${{ env.SHORT_SHA }}-signed.apk.sha256
-          token: ${{ secrets.TARGET_REPO_PAT }}
           tag_name: ${{ steps.extract_info.outputs.version }}
           draft: false
           make_latest: true
