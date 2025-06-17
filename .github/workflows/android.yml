@@ -18,7 +18,10 @@ jobs:
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
           echo "Current time: $(date)"
-
+      
+      - name: Set SHORT_SHA  # 添加环境变量定义
+        run: echo "SHORT_SHA=${GITHUB_SHA:0:7}" >> $GITHUB_ENV
+      
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -50,13 +53,14 @@ jobs:
           compatible_apk=$(find app/build/outputs/apk/compatible/release -name "*.apk" | head -n 1)
           echo "normal_apk=$normal_apk" >> $GITHUB_OUTPUT
           echo "compatible_apk=$compatible_apk" >> $GITHUB_OUTPUT
-
+      
       - name: Copy APKs to staging for signing
         run: |
           mkdir -p app/build/outputs/apk/all
+          # 修复变量引用（移除多余的括号）
           cp "${{ steps.locate_apks.outputs.normal_apk }}" app/build/outputs/apk/all/
           cp "${{ steps.locate_apks.outputs.compatible_apk }}" app/build/outputs/apk/all/
-
+      
       - name: Sign APKs
         id: sign_apks
         uses: ilharp/sign-android-release@v2
@@ -79,7 +83,7 @@ jobs:
               echo "signed_compatible=$file" >> $GITHUB_OUTPUT
             fi
           done
-
+      
       - name: Upload APK - Compatible
         uses: actions/upload-artifact@v4
         with:
@@ -102,14 +106,14 @@ jobs:
           echo "normal_file=$normal_file" >> $GITHUB_OUTPUT
           echo "compatible_file=$compatible_file" >> $GITHUB_OUTPUT
           echo "version=$version" >> $GITHUB_OUTPUT
-
+      
       - name: Generate APKS Checksum
         run: |
           sha256sum ${{ steps.extract_apks.outputs.signed_normal }} > CHECKSUMS-Sesame-Normal-${{ steps.extract_info.outputs.version }}.${{ env.SHORT_SHA }}-signed.apk.sha256
           sha256sum ${{ steps.extract_apks.outputs.signed_compatible }} > CHECKSUMS-Sesame-Compatible-${{ steps.extract_info.outputs.version }}.${{ env.SHORT_SHA }}-signed.apk.sha256
-
+      
       - name: Create Tag from Version
-        if: startsWith(github.ref, 'refs/heads/main') && github.event_name == 'push'
+        if: startsWith(github.ref, 'refs/heads/develop') && github.event_name == 'push'  # 修正分支名称
         run: |
           VERSION_TAG="v${{ steps.extract_info.outputs.version }}"
           echo "Creating tag: $VERSION_TAG"
@@ -119,13 +123,14 @@ jobs:
       - name: Upload Assets to Source Release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}  # 添加必需的 token
           name: ${{ github.event.release.tag_name || steps.extract_info.outputs.version }}
           files: |
             ${{ steps.extract_apks.outputs.signed_compatible }}
             ${{ steps.extract_apks.outputs.signed_normal }}
             CHECKSUMS-Sesame-Normal-${{ steps.extract_info.outputs.version }}.${{ env.SHORT_SHA }}-signed.apk.sha256
             CHECKSUMS-Sesame-Compatible-${{ steps.extract_info.outputs.version }}.${{ env.SHORT_SHA }}-signed.apk.sha256
-          tag_name: ${{ steps.extract_info.outputs.version}}
+          tag_name: ${{ steps.extract_info.outputs.version }}  # 修复多余的括号
           draft: false
           generate_release_notes: true
           body: |
@@ -136,12 +141,13 @@ jobs:
       - name: Sync Release to Target Repository
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.TARGET_REPO_PAT }}  # 确保这里使用正确的 token
+          token: ${{ secrets.TARGET_REPO_PAT }}
           repository: Xposed-Modules-Repo/fansirsqi.xposed.sesame
           name: ${{ github.event.release.tag_name || steps.extract_info.outputs.version }}
+          # 修复文件路径引用
           files: |
-            ${{ steps.sign_normal_apk.outputs.signedFile }}
-            ${{ steps.sign_compatible_apk.outputs.signedFile }}
+            ${{ steps.extract_apks.outputs.signed_normal }}
+            ${{ steps.extract_apks.outputs.signed_compatible }}
             CHECKSUMS-Sesame-Normal-${{ steps.extract_info.outputs.version }}.${{ env.SHORT_SHA }}-signed.apk.sha256
             CHECKSUMS-Sesame-Compatible-${{ steps.extract_info.outputs.version }}.${{ env.SHORT_SHA }}-signed.apk.sha256
           tag_name: ${{ steps.extract_info.outputs.version }}
