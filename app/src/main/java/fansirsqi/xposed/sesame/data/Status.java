@@ -1,5 +1,7 @@
 package fansirsqi.xposed.sesame.data;
+
 import com.fasterxml.jackson.databind.JsonMappingException;
+
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -16,6 +18,7 @@ import fansirsqi.xposed.sesame.util.maps.UserMap;
 import fansirsqi.xposed.sesame.util.StringUtil;
 import fansirsqi.xposed.sesame.util.TimeUtil;
 import lombok.Data;
+
 @Data
 public class Status {
     private static final String TAG = Status.class.getSimpleName();
@@ -67,7 +70,7 @@ public class Status {
     /**
      * 口碑签到
      */
-    private int kbSignIn = 0;
+    private long kbSignIn = 0;
     /**
      * 保存时间
      */
@@ -98,6 +101,17 @@ public class Status {
      */
     private Set<String> memberPointExchangeBenefitLogList = new HashSet<>();
 
+
+    public static long getCurrentDayTimestamp() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        return calendar.getTimeInMillis(); // 返回当天零点时间戳
+    }
+
+
     public static int getVitalityCount(String skuId) {
         Integer exchangedCount = getINSTANCE().getVitalityStoreList().get(skuId);
         if (exchangedCount == null) {
@@ -105,9 +119,11 @@ public class Status {
         }
         return exchangedCount;
     }
+
     public static Boolean canVitalityExchangeToday(String skuId, int count) {
         return !hasFlagToday("forest::VitalityExchangeLimit::" + skuId) && getVitalityCount(skuId) < count;
     }
+
     public static void vitalityExchangeToday(String skuId) {
         int count = getVitalityCount(skuId) + 1;
         getINSTANCE().getVitalityStoreList().put(skuId, count);
@@ -117,12 +133,14 @@ public class Status {
     public static boolean canAnimalSleep() {
         return !getINSTANCE().getAnimalSleep();
     }
+
     public static void animalSleep() {
         if (!getINSTANCE().getAnimalSleep()) {
             getINSTANCE().setAnimalSleep(true);
             save();
         }
     }
+
     public static boolean canWaterFriendToday(String id, int newCount) {
         id = UserMap.getCurrentUid() + "-" + id;
         Integer count = getINSTANCE().getWaterFriendLogList().get(id);
@@ -131,11 +149,13 @@ public class Status {
         }
         return count < newCount;
     }
+
     public static void waterFriendToday(String id, int count) {
         id = UserMap.getCurrentUid() + "-" + id;
         getINSTANCE().getWaterFriendLogList().put(id, count);
         save();
     }
+
     public static int getReserveTimes(String id) {
         Integer count = getINSTANCE().getReserveLogList().get(id);
         if (count == null) {
@@ -143,9 +163,11 @@ public class Status {
         }
         return count;
     }
+
     public static boolean canReserveToday(String id, int count) {
         return getReserveTimes(id) < count;
     }
+
     public static void reserveToday(String id, int newCount) {
         Integer count = getINSTANCE().getReserveLogList().get(id);
         if (count == null) {
@@ -154,9 +176,11 @@ public class Status {
         getINSTANCE().getReserveLogList().put(id, count + newCount);
         save();
     }
+
     public static boolean canCooperateWaterToday(String uid, String coopId) {
         return !getINSTANCE().getCooperateWaterList().contains(uid + "_" + coopId);
     }
+
     public static void cooperateWaterToday(String uid, String coopId) {
         String v = uid + "_" + coopId;
         if (!getINSTANCE().getCooperateWaterList().contains(v)) {
@@ -164,24 +188,29 @@ public class Status {
             save();
         }
     }
+
     public static boolean canAncientTreeToday(String cityCode) {
         return !getINSTANCE().getAncientTreeCityCodeList().contains(cityCode);
     }
+
     public static void ancientTreeToday(String cityCode) {
         if (!getINSTANCE().getAncientTreeCityCodeList().contains(cityCode)) {
             getINSTANCE().getAncientTreeCityCodeList().add(cityCode);
             save();
         }
     }
+
     public static boolean canAnswerQuestionToday() {
         return !getINSTANCE().answerQuestion;
     }
+
     public static void answerQuestionToday() {
         if (!getINSTANCE().answerQuestion) {
             getINSTANCE().answerQuestion = true;
             save();
         }
     }
+
     public static boolean canFeedFriendToday(String id, int newCount) {
         Integer count = getINSTANCE().feedFriendLogList.get(id);
         if (count == null) {
@@ -189,6 +218,7 @@ public class Status {
         }
         return count < newCount;
     }
+
     public static void feedFriendToday(String id) {
         Integer count = getINSTANCE().feedFriendLogList.get(id);
         if (count == null) {
@@ -197,6 +227,7 @@ public class Status {
         getINSTANCE().feedFriendLogList.put(id, count + 1);
         save();
     }
+
     public static boolean canVisitFriendToday(String id, int newCount) {
         id = UserMap.getCurrentUid() + "-" + id;
         Integer count = getINSTANCE().visitFriendLogList.get(id);
@@ -205,6 +236,7 @@ public class Status {
         }
         return count < newCount;
     }
+
     public static void visitFriendToday(String id, int newCount) {
         id = UserMap.getCurrentUid() + "-" + id;
         getINSTANCE().visitFriendLogList.put(id, newCount);
@@ -214,31 +246,38 @@ public class Status {
     public static boolean canMemberSignInToday(String uid) {
         return !getINSTANCE().memberSignInList.contains(uid);
     }
+
     public static void memberSignInToday(String uid) {
         if (!getINSTANCE().memberSignInList.contains(uid)) {
             getINSTANCE().memberSignInList.add(uid);
             save();
         }
     }
+
     public static boolean canUseAccelerateTool() {
         return getINSTANCE().useAccelerateToolCount < 8;
     }
+
     public static void useAccelerateTool() {
         getINSTANCE().useAccelerateToolCount += 1;
         save();
     }
+
     public static boolean canDonationEgg(String uid) {
         return !getINSTANCE().donationEggList.contains(uid);
     }
+
     public static void donationEgg(String uid) {
         if (!getINSTANCE().donationEggList.contains(uid)) {
             getINSTANCE().donationEggList.add(uid);
             save();
         }
     }
+
     public static boolean canSpreadManureToday(String uid) {
         return !getINSTANCE().spreadManureList.contains(uid);
     }
+
     public static void spreadManureToday(String uid) {
         if (!getINSTANCE().spreadManureList.contains(uid)) {
             getINSTANCE().spreadManureList.add(uid);
@@ -254,6 +293,7 @@ public class Status {
     public static boolean canAntStallAssistFriendToday() {
         return !getINSTANCE().antStallAssistFriend.contains(UserMap.getCurrentUid());
     }
+
     /**
      * 设置新村助力已到上限
      */
@@ -264,10 +304,12 @@ public class Status {
             save();
         }
     }
+
     // 农场助力
     public static boolean canAntOrchardAssistFriendToday() {
         return !getINSTANCE().antOrchardAssistFriend.contains(UserMap.getCurrentUid());
     }
+
     public static void antOrchardAssistFriendToday() {
         String uid = UserMap.getCurrentUid();
         if (!getINSTANCE().antOrchardAssistFriend.contains(uid)) {
@@ -275,15 +317,18 @@ public class Status {
             save();
         }
     }
+
     public static boolean canProtectBubbleToday(String uid) {
         return !getINSTANCE().getProtectBubbleList().contains(uid);
     }
+
     public static void protectBubbleToday(String uid) {
         if (!getINSTANCE().getProtectBubbleList().contains(uid)) {
             getINSTANCE().getProtectBubbleList().add(uid);
             save();
         }
     }
+
     /**
      * 是否可以贴罚单
      *
@@ -292,6 +337,7 @@ public class Status {
     public static boolean canPasteTicketTime() {
         return !getINSTANCE().canPasteTicketTime.contains(UserMap.getCurrentUid());
     }
+
     /**
      * 罚单贴完了
      */
@@ -302,6 +348,7 @@ public class Status {
         getINSTANCE().canPasteTicketTime.add(UserMap.getCurrentUid());
         save();
     }
+
     public static boolean canDoubleToday() {
         AntForest task = ModelTask.getModel(AntForest.class);
         if (task == null) {
@@ -309,53 +356,51 @@ public class Status {
         }
         return getINSTANCE().getDoubleTimes() < task.getDoubleCountLimit().getValue();
     }
+
     public static void DoubleToday() {
         getINSTANCE().setDoubleTimes(getINSTANCE().getDoubleTimes() + 1);
         save();
     }
+
     public static boolean canKbSignInToday() {
-        return getINSTANCE().kbSignIn < Statistics.INSTANCE.getDay().time;
+        return getINSTANCE().kbSignIn < getCurrentDayTimestamp();
     }
+
     public static void KbSignInToday() {
-        if (getINSTANCE().kbSignIn != Statistics.INSTANCE.getDay().time) {
-            getINSTANCE().kbSignIn = Statistics.INSTANCE.getDay().time;
+        long todayZero = getCurrentDayTimestamp(); // 获取当天零点时间戳
+        if (getINSTANCE().kbSignIn != todayZero) {
+            getINSTANCE().kbSignIn = todayZero;
             save();
         }
     }
-    public static Set<String> getDadaDailySet() {
-        return getINSTANCE().dailyAnswerList;
-    }
+
     public static void setDadaDailySet(Set<String> dailyAnswerList) {
         getINSTANCE().dailyAnswerList = dailyAnswerList;
         save();
     }
+
     public static boolean canDonateCharityCoin() {
         return !getINSTANCE().donateCharityCoin;
     }
+
     public static void donateCharityCoin() {
         if (!getINSTANCE().donateCharityCoin) {
             getINSTANCE().donateCharityCoin = true;
             save();
         }
     }
-    public static boolean canSyncStepToday(String uid) {
-        return !getINSTANCE().syncStepList.contains(uid);
-    }
-    public static void SyncStepToday(String uid) {
-        if (!getINSTANCE().syncStepList.contains(uid)) {
-            getINSTANCE().syncStepList.add(uid);
-            save();
-        }
-    }
+
     public static boolean canExchangeToday(String uid) {
         return !getINSTANCE().exchangeList.contains(uid);
     }
+
     public static void exchangeToday(String uid) {
         if (!getINSTANCE().exchangeList.contains(uid)) {
             getINSTANCE().exchangeList.add(uid);
             save();
         }
     }
+
     /**
      * 绿色经营-是否可以收好友金币
      *
@@ -364,6 +409,7 @@ public class Status {
     public static boolean canGreenFinancePointFriend() {
         return getINSTANCE().greenFinancePointFriend.contains(UserMap.getCurrentUid());
     }
+
     /**
      * 绿色经营-收好友金币完了
      */
@@ -374,6 +420,7 @@ public class Status {
         getINSTANCE().greenFinancePointFriend.add(UserMap.getCurrentUid());
         save();
     }
+
     /**
      * 绿色经营-是否可以做评级任务
      *
@@ -388,6 +435,7 @@ public class Status {
         }
         return true;
     }
+
     /**
      * 绿色经营-评级任务完了
      */
@@ -398,6 +446,7 @@ public class Status {
         getINSTANCE().greenFinancePrizesMap.put(UserMap.getCurrentUid(), TimeUtil.getWeekNumber(new Date()));
         save();
     }
+
     /**
      * 加载状态文件
      *
@@ -439,6 +488,7 @@ public class Status {
         }
         return getINSTANCE();
     }
+
     /**
      * 初始化默认配置
      *
@@ -454,6 +504,7 @@ public class Status {
             throw new RuntimeException("初始化配置失败", e);
         }
     }
+
     /**
      * 重置配置并保存
      */
@@ -466,6 +517,7 @@ public class Status {
             throw new RuntimeException("重置配置失败", e);
         }
     }
+
     public static synchronized void unload() {
         try {
             JsonUtil.copyMapper().updateValue(getINSTANCE(), new Status());
@@ -473,13 +525,15 @@ public class Status {
             Log.printStackTrace(getTAG(), e);
         }
     }
+
     public static synchronized void save() {
         save(Calendar.getInstance());
     }
+
     public static synchronized void save(Calendar nowCalendar) {
         String currentUid = UserMap.getCurrentUid();
         if (StringUtil.isEmpty(currentUid)) {
-            Log.record(getTAG(),"用户为空，状态保存失败");
+            Log.record(getTAG(), "用户为空，状态保存失败");
             throw new RuntimeException("用户为空，状态保存失败");
         }
         if (updateDay(nowCalendar)) {
@@ -496,6 +550,7 @@ public class Status {
             throw e;
         }
     }
+
     public static Boolean updateDay(Calendar nowCalendar) {
         if (TimeUtil.isLessThanSecondOfDays(getINSTANCE().saveTime, nowCalendar.getTimeInMillis())) {
             Status.unload();
@@ -504,28 +559,34 @@ public class Status {
             return false;
         }
     }
+
     public static boolean canOrnamentToday() {
         return getINSTANCE().canOrnament;
     }
+
     public static void setOrnamentToday() {
         if (getINSTANCE().canOrnament) {
             getINSTANCE().canOrnament = false;
             save();
         }
     }
+
     // 新村捐赠
     public static boolean canStallDonateToday() {
         return getINSTANCE().canStallDonate;
     }
+
     public static void setStallDonateToday() {
         if (getINSTANCE().canStallDonate) {
             getINSTANCE().canStallDonate = false;
             save();
         }
     }
+
     public static Boolean hasFlagToday(String flag) {
         return getINSTANCE().flagList.contains(flag);
     }
+
     public static void setFlagToday(String flag) {
         if (!hasFlagToday(flag)) {
             getINSTANCE().flagList.add(flag);
@@ -546,6 +607,7 @@ public class Status {
 
     /**
      * 乐园商城-是否可以兑换该商品
+     *
      * @param spuId 商品spuId
      * @return true 可以兑换 false 兑换达到上限
      */

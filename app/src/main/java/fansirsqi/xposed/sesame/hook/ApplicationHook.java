@@ -41,7 +41,6 @@ import fansirsqi.xposed.sesame.data.Config;
 import fansirsqi.xposed.sesame.data.DataCache;
 import fansirsqi.xposed.sesame.data.General;
 import fansirsqi.xposed.sesame.data.RunType;
-import fansirsqi.xposed.sesame.data.Statistics;
 import fansirsqi.xposed.sesame.data.Status;
 import fansirsqi.xposed.sesame.data.ViewAppInfo;
 import fansirsqi.xposed.sesame.entity.AlipayVersion;
@@ -309,7 +308,6 @@ public class ApplicationHook implements IXposedHookLoadPackage {
                                     }
                                 });
                                 registerBroadcastReceiver(appService);
-                                Statistics.load();
                                 FriendWatch.load(UserId.get());
                                 dayCalendar = Calendar.getInstance();
                                 if (initHandler(true)) {
@@ -340,7 +338,6 @@ public class ApplicationHook implements IXposedHookLoadPackage {
                                 Notify.updateStatusText("支付宝前台服务被销毁");
                                 destroyHandler(true);
                                 FriendWatch.unload();
-                                Statistics.unload();
                                 restartByBroadcast();
                             }
                         });
@@ -569,7 +566,6 @@ public class ApplicationHook implements IXposedHookLoadPackage {
                 Status.load();
                 DataCache.INSTANCE.load();
                 updateDay(userId);
-                BaseModel.initData();
                 String successMsg = "芝麻粒-TK 加载成功✨";
                 Log.record(successMsg);
                 Toast.show(successMsg);
@@ -670,11 +666,7 @@ public class ApplicationHook implements IXposedHookLoadPackage {
         } catch (Exception e) {
             Log.printStackTrace(e);
         }
-        try {
-            Statistics.save(Calendar.getInstance());
-        } catch (Exception e) {
-            Log.printStackTrace(e);
-        }
+
         try {
             Status.save(nowCalendar);
         } catch (Exception e) {

@@ -3,7 +3,6 @@ package fansirsqi.xposed.sesame.task.antForest;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import fansirsqi.xposed.sesame.data.Statistics;
 import fansirsqi.xposed.sesame.util.Log;
 import fansirsqi.xposed.sesame.util.ResChecker;
 import fansirsqi.xposed.sesame.util.TimeUtil;
@@ -73,7 +72,6 @@ public class Healthcare {
             if (collectedEnergy > 0) {
                 String title = scene.equals("FEEDS") ? "绿色医疗" : "电子小票";
                 Log.forest("医疗健康🚑收取[" + title + "]#获得[" + collectedEnergy + "g能量]");
-                Statistics.addData(Statistics.DataType.COLLECTED, collectedEnergy);
                 return true;
             }
         } catch (Throwable th) {

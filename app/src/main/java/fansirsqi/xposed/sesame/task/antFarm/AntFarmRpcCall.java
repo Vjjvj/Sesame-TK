@@ -254,9 +254,7 @@ public class AntFarmRpcCall {
     }
 
     public static String sign() {
-        return RequestManager.requestString("com.alipay.antfarm.sign",
-                "[{\"requestType\":\"NORMAL\",\"sceneCode\":\"ANTFARM\",\"source\":\"H5\",\"version\":\"" + VERSION
-                        + "\"}]");
+        return RequestManager.requestString("com.alipay.antfarm.sign", "[{\"requestType\":\"NORMAL\",\"sceneCode\":\"ANTFARM\",\"source\":\"H5\",\"version\":\"" + VERSION + "\"}]");
     }
 
     public static String initFarmGame(String gameType) {

@@ -14,6 +14,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import fansirsqi.xposed.sesame.data.DataCache;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,25 +50,27 @@ public class EcoLife {
                 return;
             }
             JSONObject data = jsonObject.getJSONObject("data");
-            if (!ecoLifeOpen.getValue()) {
-                return;
-            }
-            if (!data.getBoolean("openStatus")) {
-                if (!openEcoLife()) {
-                    return;
-                }
-                jsonObject = new JSONObject(AntForestRpcCall.ecolifeQueryHomePage());
-                data = jsonObject.getJSONObject("data");
-            }
+
+
             // 获取当天的积分和任务列表
             String dayPoint = data.getString("dayPoint");
+
+            if (ecoLifeOption.getValue().contains("plate")) {
+                photoGuangPan(dayPoint);
+            }
+
             JSONArray actionListVO = data.getJSONArray("actionListVO");
             // 绿色打卡
             if (ecoLifeOption.getValue().contains("tick")) {
+                if (!data.getBoolean("openStatus")) {
+                    if (!openEcoLife() || !ecoLifeOpen.getValue()) {
+                        return;
+                    }
+                    jsonObject = new JSONObject(AntForestRpcCall.ecolifeQueryHomePage());
+                    data = jsonObject.getJSONObject("data");
+                    dayPoint = data.getString("dayPoint");
+                }
                 ecoLifeTick(actionListVO, dayPoint);
-            }
-            if (ecoLifeOption.getValue().contains("plate")) {
-                photoGuangPan(dayPoint);
             }
         } catch (Throwable th) {
             Log.runtime(TAG, "ecoLife err:");
@@ -179,7 +182,7 @@ public class EcoLife {
                     if (afterMatcher.find()) {
                         photo.put("after", afterMatcher.group(1));
                     }
-                    List<Map<String, String>> guangPanPhotos = DataCache.INSTANCE.getData("guangPanPhotos", new ArrayList<>());
+                    List<Map<String, String>> guangPanPhotos = DataCache.INSTANCE.getData("guangPanPhoto", new ArrayList<>());
                     if (guangPanPhotos == null) {
                         guangPanPhotos = new ArrayList<>();
                     }
@@ -213,20 +216,20 @@ public class EcoLife {
             }
             str = AntForestRpcCall.ecolifeUploadDishImage("BEFORE_MEALS", photo.get("before"), 0.16571736, 0.07448776, 0.7597949, dayPoint);
             jo = new JSONObject(str);
-            if (!ResChecker.checkRes( jo)) {
+            if (!ResChecker.checkRes(jo)) {
                 return;
             }
             GlobalThreadPools.sleep(3000);
             str = AntForestRpcCall.ecolifeUploadDishImage("AFTER_MEALS", photo.get("after"), 0.00040030346, 0.99891376, 0.0006858421, dayPoint);
             jo = new JSONObject(str);
-            if (!ResChecker.checkRes( jo)) {
+            if (!ResChecker.checkRes(jo)) {
                 return;
             }
             // 提交任务
             str = AntForestRpcCall.ecolifeTick("photoguangpan", dayPoint, source);
             jo = new JSONObject(str);
             // 如果提交失败，记录错误信息并返回
-            if (!ResChecker.checkRes( jo)) {
+            if (!ResChecker.checkRes(jo)) {
                 return;
             }
             // 任务完成，输出完成日志

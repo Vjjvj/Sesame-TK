@@ -17,14 +17,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import de.robv.android.xposed.XposedHelpers;
 import fansirsqi.xposed.sesame.data.DataCache;
 import fansirsqi.xposed.sesame.data.RuntimeInfo;
-import fansirsqi.xposed.sesame.data.Statistics;
 import fansirsqi.xposed.sesame.data.Status;
 import fansirsqi.xposed.sesame.entity.AlipayUser;
 import fansirsqi.xposed.sesame.entity.CollectEnergyEntity;
@@ -346,10 +344,6 @@ public class AntForest extends ModelTask {
         try {
             errorWait = false;
             Log.record(TAG, "执行开始-蚂蚁" + getName());
-            Statistics.load();
-            totalCollected = Statistics.getData(Statistics.TimeType.DAY, Statistics.DataType.COLLECTED);
-            totalHelpCollected = Statistics.getData(Statistics.TimeType.DAY, Statistics.DataType.HELPED);
-            totalWatered = Statistics.getData(Statistics.TimeType.DAY, Statistics.DataType.WATERED);
             taskCount.set(0);
             selfId = UserMap.getCurrentUid();
             usePropBeforeCollectEnergy(selfId);
@@ -361,33 +355,14 @@ public class AntForest extends ModelTask {
 
             selfHomeObj = collectUserEnergy(UserMap.getCurrentUid(), selfHomeObj); //收取自己的能量
 
-            if (!TaskCommon.IS_ENERGY_TIME && selfHomeObj != null) {
-                boolean hasMore;
-                do {//循环处理-浇水金球和被赠送道具领取逻辑
-                    hasMore = false;
-                    if (collectWateringBubble.getValue()) {
-                        JSONArray wateringBubbles = selfHomeObj.optJSONArray("wateringBubbles");
-                        if (wateringBubbles != null && wateringBubbles.length() > 0) {
-                            collectWateringBubbles(wateringBubbles);
-                            if (wateringBubbles.length() >= 20) {
-                                hasMore = true;
-                            }
-                        }
-                    }
-                    if (collectProp.getValue()) {
-                        JSONArray givenProps = selfHomeObj.optJSONArray("givenProps");
-                        if (givenProps != null && givenProps.length() > 0) {
-                            collectGivenProps(givenProps);
-                            if (givenProps.length() >= 20) {
-                                hasMore = true;
-                            }
-                        }
-                    }
-                    if (hasMore) {
-                        selfHomeObj = querySelfHome();
-                    }
-                } while (hasMore);
+            if (selfHomeObj != null) {
 
+                if (collectWateringBubble.getValue()) {
+                    wateringBubbles(selfHomeObj);//浇水金球
+                }
+                if (collectProp.getValue()) {
+                    givenProps(selfHomeObj);//收取道具
+                }
                 if (userPatrol.getValue()) {
                     queryUserPatrol();//动物巡护任务[保护地巡护]
                 }
@@ -480,13 +455,49 @@ public class AntForest extends ModelTask {
             } catch (InterruptedException ie) {
                 Log.record(TAG, "执行中断-蚂蚁森林");
             }
-            Statistics.save();
             cacheCollectedList.clear();
             FriendWatch.save(selfId);
-            String str_totalCollected = "收:" + totalCollected + "g 帮:" + totalHelpCollected + "g 浇:" + totalWatered + "g";
+            String str_totalCollected = "本次总 收:" + totalCollected + "g 帮:" + totalHelpCollected + "g 浇:" + totalWatered + "g";
             Notify.updateLastExecText(str_totalCollected);
         }
     }
+
+    /**
+     * 定义一个 处理器接口
+     */
+    @FunctionalInterface
+    private interface JsonArrayHandler {
+        void handle(JSONArray array);
+    }
+
+
+    private void processJsonArray(JSONObject initialObj, String arrayKey, JsonArrayHandler handler) {
+        boolean hasMore;
+        JSONObject currentObj = initialObj;
+        do {
+            JSONArray jsonArray = currentObj.optJSONArray(arrayKey);
+            if (jsonArray != null && jsonArray.length() > 0) {
+                handler.handle(jsonArray);
+                // 判断是否还有更多数据（比如返回满20个）
+                hasMore = jsonArray.length() >= 20;
+            } else {
+                hasMore = false;
+            }
+            if (hasMore) {
+                GlobalThreadPools.sleep(2000L); // 防止请求过快被限制
+                currentObj = querySelfHome(); // 获取下一页数据
+            }
+        } while (hasMore);
+    }
+
+    private void wateringBubbles(JSONObject selfHomeObj) {
+        processJsonArray(selfHomeObj, "wateringBubbles", this::collectWateringBubbles);
+    }
+
+    private void givenProps(JSONObject selfHomeObj) {
+        processJsonArray(selfHomeObj, "givenProps", this::collectGivenProps);
+    }
+
 
     /**
      * 收取回赠能量，好友浇水金秋，好友复活能量
@@ -568,7 +579,6 @@ public class AntForest extends ModelTask {
                         String msg = successMessage + "[" + collected + "g]";
                         Log.forest(msg);
                         Toast.show(msg);
-                        Statistics.addData(Statistics.DataType.COLLECTED, collected);
                     } else {
                         Log.record(successMessage + "失败");
                     }
@@ -698,7 +708,7 @@ public class AntForest extends ModelTask {
                             if (actualWaterCount > 0) {
                                 Status.waterFriendToday(uid, actualWaterCount);
                             }
-                            if (!waterCountKVNode.getValue()) {
+                            if (Boolean.FALSE.equals(waterCountKVNode.getValue())) {
                                 break;
                             }
                         } else {
@@ -1199,7 +1209,6 @@ public class AntForest extends ModelTask {
                             }
                             int energy = giftBoxResult.optInt("energy", 0);
                             Log.forest("礼盒能量🎁[" + UserMap.getMaskName(userId) + "-" + title + "]#" + energy + "g");
-                            Statistics.addData(Statistics.DataType.COLLECTED, energy);
                         } catch (Throwable t) {
                             Log.printStackTrace(t);
                             break;
@@ -1242,7 +1251,6 @@ public class AntForest extends ModelTask {
                         int fullEnergy = wateringBubble.optInt("fullEnergy", 0);
                         String str = "复活能量🚑[" + UserMap.getMaskName(userId) + "-" + fullEnergy + "g]" + (vitalityAmount > 0 ? "#活力值+" + vitalityAmount : "");
                         Log.forest(str);
-                        Statistics.addData(Statistics.DataType.HELPED, fullEnergy);
                         break;
                     } catch (Throwable t) {
                         Log.printStackTrace(t);
@@ -1361,7 +1369,6 @@ public class AntForest extends ModelTask {
                                     Log.forest(str + "耗时[" + spendTime + "]ms");
                                     Toast.show(str);
                                 }
-                                Statistics.addData(Statistics.DataType.COLLECTED, collected);
                             } else {
                                 Log.record(TAG, "一键收取❌[" + UserMap.getMaskName(userId) + "]的能量失败" + " " + "，UserID：" + userId + "，BubbleId：" + newBubbleIdList);
                             }
@@ -1386,7 +1393,6 @@ public class AntForest extends ModelTask {
                                     Log.forest(str + "耗时[" + spendTime + "]ms");
                                     Toast.show(str);
                                 }
-                                Statistics.addData(Statistics.DataType.COLLECTED, collected);
                             } else {
                                 Log.record(TAG, "普通收取❌[" + UserMap.getMaskName(userId) + "]的能量失败");
                                 Log.runtime(TAG, "，UserID：" + userId + "，BubbleId：" + bubble.getLong("id"));
@@ -1414,8 +1420,7 @@ public class AntForest extends ModelTask {
                         Log.runtime(TAG, "collectEnergy err");
                         Log.printStackTrace(e);
                     } finally {
-                        Statistics.save();
-                        String str_totalCollected = "收:" + totalCollected + "g 帮:" + totalHelpCollected + "g 浇:" + totalWatered + "g";
+                        String str_totalCollected = "本次总 收:" + totalCollected + "g 帮:" + totalHelpCollected + "g 浇:" + totalWatered + "g";
                         Notify.updateLastExecText(str_totalCollected);
                         notifyMain();
                     }
@@ -1581,7 +1586,6 @@ public class AntForest extends ModelTask {
                         String currentEnergy = jo.getJSONObject("treeEnergy").getString("currentEnergy");
                         Log.forest("好友浇水🚿[" + UserMap.getMaskName(userId) + "]#" + waterEnergy + "g，剩余能量[" + currentEnergy + "g]");
                         wateredTimes++;
-                        Statistics.addData(Statistics.DataType.WATERED, waterEnergy);
                         break;
                     case "WATERING_TIMES_LIMIT":
                         Log.record(TAG, "好友浇水🚿今日给[" + UserMap.getMaskName(userId) + "]浇水已达上限");
@@ -1670,13 +1674,25 @@ public class AntForest extends ModelTask {
     }
 
     /**
-     * 森林任务
+     * 森林任务:
+     * 逛支付宝会员,去森林寻宝抽1t能量
+     * 防治荒漠化和干旱日,给随机好友一键浇水
+     * 开通高德活动领,去吉祥林许个愿
+     * 逛森林集市得能量,逛一逛618会场
+     * 逛一逛点淘得红包,去一淘签到领红包
      */
     private void receiveTaskAward() {
         try {
             // 修复：使用new HashSet包装从缓存获取的数据，兼容List/Set类型
-            Set<String> taskList = new HashSet<>(List.of("TEST_LEAF_TASK", "ENERGYRAIN", "FOREST_CONTINUOUS_COLLECT_ENERGY_7", "SHARETASK", "GYG_jinritoutiao_202505", "mokuai_senlin_hlz", "DAOLIU_SLLXX_GAME_2025"));
-            taskList = DataCache.INSTANCE.getSet("forestTaskList", taskList);
+            Set<String> taskList = new HashSet<>(List.of(
+                    "ENERGYRAIN", //能量雨
+                    "ENERGY_XUANJIAO", //践行绿色行为
+                    "FOREST_TOTAL_COLLECT_ENERGY_3",//累积3天收自己能量
+                    "TEST_LEAF_TASK",//逛农场得落叶肥料
+                    "SHARETASK"//邀请好友助力
+            ));
+            Set<String> cachedSet = DataCache.INSTANCE.getSet("forestTaskList", taskList);
+            taskList = new HashSet<>(cachedSet); // ✅ 关键：确保是可变集合
             while (true) {
                 boolean doubleCheck = false; // 标记是否需要再次检查任务
                 String s = AntForestRpcCall.queryTaskList(); // 查询任务列表

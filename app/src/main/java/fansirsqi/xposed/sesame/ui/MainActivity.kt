@@ -18,7 +18,6 @@ import androidx.core.util.Consumer
 import fansirsqi.xposed.sesame.R
 import fansirsqi.xposed.sesame.data.General
 import fansirsqi.xposed.sesame.data.RunType
-import fansirsqi.xposed.sesame.data.Statistics
 import fansirsqi.xposed.sesame.data.UIConfig
 import fansirsqi.xposed.sesame.data.ViewAppInfo
 import fansirsqi.xposed.sesame.entity.FriendWatch
@@ -96,8 +95,7 @@ class MainActivity : BaseActivity() {
             }
             false // 如果不是目标视图，返回false
         }
-        Statistics.load()
-        tvStatistics.text = Statistics.getText()
+        tvStatistics.text = "🏗待施工.."
         FansirsqiUtil.getOneWord(
             object : OneWordCallback {
                 override fun onSuccess(result: String?) {
@@ -147,13 +145,6 @@ class MainActivity : BaseActivity() {
             } catch (e: Exception) {
                 userNameArray = arrayOf("默认")
                 userEntityArray = arrayOf(null)
-                Log.printStackTrace(e)
-            }
-            try {
-                Statistics.load()
-                Statistics.updateDay(Calendar.getInstance())
-                tvStatistics.text = Statistics.getText()
-            } catch (e: Exception) {
                 Log.printStackTrace(e)
             }
         }
@@ -247,12 +238,12 @@ class MainActivity : BaseActivity() {
             menu.add(0, 2, 2, R.string.view_error_log_file)
             menu.add(0, 3, 3, R.string.view_all_log_file)
             menu.add(0, 4, 4, R.string.view_runtim_log_file)
-            menu.add(0, 5, 5, R.string.export_the_statistic_file)
-            menu.add(0, 6, 6, R.string.import_the_statistic_file)
-            menu.add(0, 7, 7, R.string.view_capture)
-            menu.add(0, 8, 8, R.string.extend)
-            menu.add(0, 9, 9, R.string.settings)
-            menu.add(0, 10, 10, "🧹 清空配置")
+            menu.add(0, 5, 5, R.string.view_capture)
+            menu.add(0, 6, 6, R.string.extend)
+            menu.add(0, 7, 7, R.string.settings)
+            if (ViewAppInfo.isApkInDebug) {
+                menu.add(0, 8, 8, "清除配置")
+            }
         } catch (e: Exception) {
             Log.printStackTrace(e)
             ToastUtil.makeText(this, "菜单创建失败，请重试", Toast.LENGTH_SHORT).show()
@@ -317,22 +308,6 @@ class MainActivity : BaseActivity() {
             }
 
             5 -> {
-                val statisticsFile = Files.exportFile(Files.getStatisticsFile(), false)
-                if (statisticsFile != null) {
-                    ToastUtil.makeText(
-                        this,
-                        "文件已导出到: " + statisticsFile.path,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-
-            6 -> if (Files.copy(Files.getExportedStatisticsFile(), Files.getStatisticsFile())) {
-                tvStatistics.text = Statistics.getText()
-                ToastUtil.makeText(this, "导入成功！", Toast.LENGTH_SHORT).show()
-            }
-
-            7 -> {
                 var captureData = "file://"
                 captureData += Files.getCaptureLogFile().absolutePath
                 val captureIt = Intent(this, HtmlViewerActivity::class.java)
@@ -342,11 +317,11 @@ class MainActivity : BaseActivity() {
                 startActivity(captureIt)
             }
 
-            8 ->                 // 扩展功能
+            6 ->                 // 扩展功能
                 startActivity(Intent(this, ExtendActivity::class.java))
 
-            9 -> selectSettingUid()
-            10 -> AlertDialog.Builder(this)
+            7 -> selectSettingUid()
+            8 -> AlertDialog.Builder(this)
                 .setTitle("⚠️ 警告")
                 .setMessage("🤔 确认清除所有模块配置？")
                 .setPositiveButton(R.string.ok) { _: DialogInterface?, _: Int ->

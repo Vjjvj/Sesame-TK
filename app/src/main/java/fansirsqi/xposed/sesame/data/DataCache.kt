@@ -7,6 +7,7 @@ import fansirsqi.xposed.sesame.util.Log
 import fansirsqi.xposed.sesame.util.RandomUtil
 import fansirsqi.xposed.sesame.util.StringUtil
 import java.io.File
+import java.io.IOException
 
 /**
  * @author Byseven
@@ -47,11 +48,11 @@ object DataCache {
      * 安全获取 Set<String> 类型的缓存值，自动处理 List
      * @/Set 类型兼容问题
      */
-    fun getSet(key: String, defaultValue: Set<String> = emptySet()): Set<String> {
+    fun getSet(key: String, defaultValue: Set<String> = emptySet()): MutableSet<String> {
         val value = dataMap[key]
         return when (value) {
-            is Set<*> -> value.mapNotNull { it as? String }.toSet()
-            is List<*> -> value.mapNotNull { it as? String }.toSet()
+            is Set<*> -> value.mapNotNull { it as? String }.toMutableSet()
+            is List<*> -> value.mapNotNull { it as? String }.toMutableSet()
             else -> defaultValue.toMutableSet()
         }
     }
@@ -153,40 +154,78 @@ object DataCache {
     }
 
     private fun save(): Boolean {
-        Log.record(TAG, "save DataCache")
-        return Files.write2File(
-            JsonUtil.formatJson(this),
-            Files.getTargetFileofDir(FILE_PATH, FILENAME)
-        )
+        val targetFile = File(FILE_PATH, FILENAME)
+        val tempFile = File(targetFile.parent, "${targetFile.name}.tmp")
+        return try {
+            // 1. 序列化对象为格式化后的 JSON 字符串
+            val json = JsonUtil.formatJson(this) ?: throw IllegalStateException("JSON 序列化失败")
+            // 2. 写入临时文件
+            tempFile.writeText(json)
+            // 3. 原子性替换
+            if (tempFile.exists()) {
+                targetFile.delete()
+                tempFile.renameTo(targetFile)
+                true
+            } else {
+                Log.error(TAG, "临时文件写入失败")
+                false
+            }
+        } catch (e: Exception) {
+            Log.error(TAG, "保存缓存数据失败：${e.message}")
+            false
+        }
     }
 
     @Synchronized
-    fun load() {
-        if (init) return
+    fun load(): Boolean {
+        if (init) return true
+
         val oldFile = Files.getTargetFileofDir(Files.MAIN_DIR, FILENAME)
         val targetFile = Files.getTargetFileofDir(FILE_PATH, FILENAME)
+        var success = false
+
         try {
             if (targetFile.exists()) {
                 val json = Files.readFromFile(targetFile)
-                JsonUtil.copyMapper().readerForUpdating(this).readValue<Any>(json)
+                val mapper = JsonUtil.copyMapper()
+                mapper.readerForUpdating(this).readValue<Any>(json)
                 val formatted = JsonUtil.formatJson(this)
                 if (formatted != null && formatted != json) {
                     Log.runtime(TAG, "format $TAG config")
-                    Files.write2File(formatted, targetFile)
+                    save() // 使用临时文件写入
                 }
-                oldFile.delete()
+                if (oldFile.exists()) oldFile.delete()
             } else if (oldFile.exists()) {
-                Files.copy(oldFile, targetFile)
-                oldFile.delete()
+                if (Files.copy(oldFile, targetFile)) {
+                    val json = Files.readFromFile(targetFile)
+                    JsonUtil.copyMapper().readerForUpdating(this).readValue<Any>(json)
+                    val formatted = JsonUtil.formatJson(this)
+                    if (formatted != null && formatted != json) {
+                        Log.runtime(TAG, "format $TAG config")
+                        save()
+                    }
+                    oldFile.delete()
+                } else {
+                    Log.error(TAG, "copy old config to new config failed")
+                    return false
+                }
             } else {
                 Log.runtime(TAG, "init $TAG config")
                 JsonUtil.copyMapper().updateValue(this, DataCache)
-                Files.write2File(JsonUtil.formatJson(this), targetFile)
+                val formatted = JsonUtil.formatJson(this)
+                if (formatted != null) {
+                    save()
+                }
             }
+            success = true
         } catch (e: Exception) {
             Log.error(TAG, "加载缓存数据失败：${e.message}")
+            // 尝试恢复默认配置
+            JsonUtil.copyMapper().updateValue(this, DataCache)
+        } finally {
+            init = success
         }
-        init = true
+        return success
     }
 
     @Synchronized

@@ -194,10 +194,7 @@ public class BaseModel extends Model {
     public static void initData() {
         new Thread(() -> {
             try {
-                Log.runtime(TAG, "🍼初始化海洋，保护地数据");
                 GlobalThreadPools.sleep(RandomUtil.nextInt(4500, 6000));
-                Reserve.initReserve();
-                AntOcean.initBeach();
             } catch (Exception e) {
                 Log.printStackTrace(e);
             }

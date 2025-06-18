@@ -65,6 +65,7 @@ public class Reserve extends ModelTask {
     public void run() {
         try {
             Log.record(TAG, "开始保护地任务");
+            initReserve();
             animalReserve();
         } catch (Throwable t) {
             Log.runtime(TAG, "start.run err:");
@@ -79,14 +80,10 @@ public class Reserve extends ModelTask {
      */
     public static void initReserve() {
         try {
-            // 调用 ReserveRpc 接口，查询可兑换的树项目列表
             String response = ReserveRpcCall.queryTreeItemsForExchange();
-            // 若首次调用结果为空，进行延迟后再次调用
             JSONObject jsonResponse = new JSONObject(response);
-            // 检查接口调用是否成功，resultCode 为 SUCCESS 表示成功
-            if ("SUCCESS".equals(jsonResponse.optString("resultCode", ""))) {
+            if (ResChecker.checkRes(jsonResponse)) {
                 JSONArray treeItems = jsonResponse.optJSONArray("treeItems");
-                // 遍历所有树项目，筛选符合条件的保护地项目
                 if (treeItems != null) {
                     for (int i = 0; i < treeItems.length(); i++) {
                         JSONObject item = treeItems.getJSONObject(i);
