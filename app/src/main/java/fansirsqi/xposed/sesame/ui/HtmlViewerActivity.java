@@ -6,7 +6,6 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -16,6 +15,11 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.core.view.OnApplyWindowInsetsListener;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import androidx.core.content.ContextCompat;
 import androidx.webkit.WebSettingsCompat;
@@ -42,18 +46,17 @@ public class HtmlViewerActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         LanguageUtil.setLocale(this);
         setContentView(R.layout.activity_html_viewer);
-        // 设置标题栏
+
         // 初始化 WebView 和进度条
         mWebView = findViewById(R.id.mwv_webview);
         progressBar = findViewById(R.id.pgb_webview);
-        // 设置 WebView 的客户端
+
         setupWebView();
         settings = mWebView.getSettings();
-        // 安全设置WebView
+
+        // 安全设置 WebView
         try {
-            // 仅在确保WebView初始化完成后设置
             if (mWebView != null) {
-                // 夜间模式设置(可选)
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
                     try {
                         WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, true);
@@ -62,17 +65,35 @@ public class HtmlViewerActivity extends BaseActivity {
                         Log.printStackTrace(TAG, e);
                     }
                 }
-                // 确保基本设置不会导致崩溃
+
                 settings.setJavaScriptEnabled(false);
                 settings.setDomStorageEnabled(false);
-                progressBar.setProgressTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.selection_color)));// 设置进度条颜色
-                mWebView.setBackgroundColor(ContextCompat.getColor(this, R.color.background));// 设置WebView背景色
+                progressBar.setProgressTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.selection_color)));
+                mWebView.setBackgroundColor(ContextCompat.getColor(this, R.color.background));
             }
         } catch (Exception e) {
             Log.error(TAG, "WebView初始化异常: " + e.getMessage());
             Log.printStackTrace(TAG, e);
         }
 
+        View contentView = findViewById(android.R.id.content);
+
+        ViewCompat.setOnApplyWindowInsetsListener(contentView, new OnApplyWindowInsetsListener() {
+            @NonNull
+            @Override
+            public WindowInsetsCompat onApplyWindowInsets(@NonNull View v, @NonNull WindowInsetsCompat insets) {
+                int systemBarsBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
+
+                mWebView.setPadding(
+                        mWebView.getPaddingLeft(),
+                        mWebView.getPaddingTop(),
+                        mWebView.getPaddingRight(),
+                        systemBarsBottom
+                );
+
+                return insets;
+            }
+        });
     }
 
     /**

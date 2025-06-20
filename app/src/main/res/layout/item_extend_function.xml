@@ -5,7 +5,7 @@
     android:orientation="vertical"
     android:padding="8dp">
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/button_extend_item"
         style="?android:attr/buttonBarButtonStyle"
         android:layout_width="match_parent"

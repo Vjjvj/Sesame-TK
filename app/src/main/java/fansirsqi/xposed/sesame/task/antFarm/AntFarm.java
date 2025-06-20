@@ -91,36 +91,9 @@ public class AntFarm extends ModelTask {
     private double finalScore = 0d;
     private String familyGroupId;
     private FarmTool[] farmTools;
-    private static final List<String> bizKeyList;
-
 
     static {
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-        bizKeyList = new ArrayList<>();
-        bizKeyList.add("ADD_GONGGE_NEW");
-        bizKeyList.add("USER_STARVE_PUSH");
-        bizKeyList.add("YEB_PURCHASE");
-        bizKeyList.add("WIDGET_addzujian");//添加庄园小组件
-        bizKeyList.add("HIRE_LOW_ACTIVITY");//雇佣小鸡拿饲料
-        bizKeyList.add("DIANTAOHUANDUAN");//去点淘逛一逛
-        bizKeyList.add("TAO_GOLDEN_V2");//去逛一逛淘金币小镇
-        bizKeyList.add("SHANGYEHUA_90_1");//去杂货铺逛一逛
-        bizKeyList.add("TAOBAO_tab2gzy");// 去逛一逛淘宝视频
-        bizKeyList.add("YITAO_appgyg");// 去一淘APP逛逛
-        bizKeyList.add("ANTFARM_chouchoule");// 【抽抽乐】好运装扮来袭！
-        bizKeyList.add("TB_qiandao2023");// 去淘宝签到逛一逛
-        bizKeyList.add("BABAFARM_TB");// 去逛一逛淘宝芭芭农场
-        bizKeyList.add("TB_chongzhi");// 逛一逛小羊农场
-        bizKeyList.add("ALIPAIMAI_gygzy");// 逛一逛淘花岛
-        bizKeyList.add("BABA_FARM_SPREAD_MANURE");// 去芭芭农场给果树施肥
-        bizKeyList.add("ELM_hudong2024");// 去饿了么游乐园逛一逛
-        bizKeyList.add("2024XIANYU_huanduan");// 去闲鱼逛一逛
-        bizKeyList.add("JINGTAN_FEED_FISH");// 去鲸探喂鱼集福气
-        bizKeyList.add("UC_gygzy");// 逛一逛UC浏览器
-        bizKeyList.add("TAOBAO_renshenggyg");// 去淘宝人生逛一逛
-        bizKeyList.add("TOUTIAO_daoduan");// 去今日头条极速版逛一逛
-        bizKeyList.add("SLEEP");// 让小鸡去睡觉
     }
 
     @Override
@@ -315,7 +288,8 @@ public class AntFarm extends ModelTask {
             if (enterFarm() == null) {
                 return;
             }
-            listFarmTool();
+            listFarmTool();//装载道具信息
+
             if (rewardFriend.getValue()) {
                 rewardFriend();
             }
@@ -625,15 +599,17 @@ public class AntFarm extends ModelTask {
         }
     }
 
+    /**
+     * 初始化庄园
+     *
+     * @return 庄园信息
+     */
     private JSONObject enterFarm() {
         try {
             String userId = UserMap.getCurrentUid();
-            String s = AntFarmRpcCall.enterFarm(userId, userId);
-            JSONObject jo = new JSONObject(s);
+            JSONObject jo = new JSONObject(AntFarmRpcCall.enterFarm(userId, userId));
             if (ResChecker.checkRes(jo)) {
-
                 rewardProductNum = jo.getJSONObject("dynamicGlobalConfig").getString("rewardProductNum");
-
                 JSONObject joFarmVO = jo.getJSONObject("farmVO");
                 JSONObject familyInfoVO = jo.getJSONObject("familyInfoVO");
                 foodStock = joFarmVO.getInt("foodStock");
@@ -674,8 +650,6 @@ public class AntFarm extends ModelTask {
                     acceptGift();
                 }
                 return jo;
-            } else {
-                Log.record(s);
             }
         } catch (Exception e) {
             Log.printStackTrace(e);
@@ -1093,7 +1067,14 @@ public class AntFarm extends ModelTask {
 
     private void answerQuestion(String activityId) {
         try {
-            cleanOldAnswers();
+            String today = TimeUtil.getDateStr();
+            String yesterday = TimeUtil.getDateStr(-1);
+            String tomorrow = TimeUtil.getDateStr(1);
+            // 获取缓存中的题目答案映射
+            Map<String, String> farmAnswerCache = DataCache.INSTANCE.getData(FARM_ANSWER_CACHE_KEY, new HashMap<>());
+            cleanOldAnswers(farmAnswerCache, today);
+
+
             // 检查是否今天已经答过题
             if (Status.hasFlagToday(ANSWERED_FLAG)) {
                 // 如果今天已经答过题，检查是否已经缓存了明日答案
@@ -1102,7 +1083,7 @@ public class AntFarm extends ModelTask {
                     JSONObject jo = new JSONObject(DadaDailyRpcCall.home(activityId));
                     if (ResChecker.checkRes(jo)) {
                         JSONArray operationConfigList = jo.getJSONArray("operationConfigList");
-                        updateTomorrowAnswerCache(operationConfigList);
+                        updateTomorrowAnswerCache(operationConfigList, tomorrow);
                         Status.setFlagToday(CACHED_FLAG); // 标记为已缓存
                     }
                 }
@@ -1118,23 +1099,24 @@ public class AntFarm extends ModelTask {
             JSONArray labels = question.getJSONArray("label");
             String title = question.getString("title");
 
-            // 获取缓存中的题目答案映射
-            Map<String, String> farmAnswerCache = DataCache.INSTANCE.getData(FARM_ANSWER_CACHE_KEY, new HashMap<>());
+
             if (farmAnswerCache == null) {
                 farmAnswerCache = new HashMap<>();
             }
 
             String answer = null;
             boolean existsResult = false;
-            // 尝试从缓存中获取答案
-            if (farmAnswerCache.containsKey(title)) {
-                answer = farmAnswerCache.get(title);
+            String cacheKey = title + "|" + today; // 使用 today ，因为答题发生在当天
+            if (farmAnswerCache.containsKey(cacheKey)) {
+                answer = farmAnswerCache.get(cacheKey);
+                Log.farm("🎉 答案[" + answer + "]命中缓存题目：" + cacheKey);
                 if (answer != null && labels.toString().contains(answer)) {
                     existsResult = true;
                 }
             }
             // 缓存未命中时调用 AI 获取答案
             if (!existsResult) {
+                Log.farm("缓存未命中，尝试使用AI答题：" + title);
                 answer = AnswerAI.getAnswer(title, JsonUtil.jsonArrayToList(labels), "farm");
                 if (answer == null || answer.isEmpty()) {
                     answer = labels.getString(0);
@@ -1149,7 +1131,7 @@ public class AntFarm extends ModelTask {
                 Log.farm("饲料任务答题：" + (correct ? "正确" : "错误") + "领取饲料［" + extInfo.getString("award") + "g］");
                 // 更新缓存明日答案
                 JSONArray operationConfigList = joDailySubmit.getJSONArray("operationConfigList");
-                updateTomorrowAnswerCache(operationConfigList);
+                updateTomorrowAnswerCache(operationConfigList, tomorrow);
                 Status.setFlagToday(CACHED_FLAG); // 标记为已缓存明日答案
             }
 
@@ -1158,18 +1140,23 @@ public class AntFarm extends ModelTask {
         }
     }
 
-    private void updateTomorrowAnswerCache(JSONArray operationConfigList) {
+    /**
+     * 更新明日答案缓存
+     *
+     * @param operationConfigList 操作配置列表
+     * @param date                日期字符串，格式 "yyyy-MM-dd"
+     */
+    private void updateTomorrowAnswerCache(JSONArray operationConfigList, String date) {
         try {
             Map<String, String> farmAnswerCache = DataCache.INSTANCE.getData(FARM_ANSWER_CACHE_KEY, new HashMap<>());
             if (farmAnswerCache == null) {
                 farmAnswerCache = new HashMap<>();
             }
-
             for (int j = 0; j < operationConfigList.length(); j++) {
                 JSONObject operationConfig = operationConfigList.getJSONObject(j);
                 String type = operationConfig.getString("type");
                 if ("PREVIEW_QUESTION".equals(type)) {
-                    String previewTitle = operationConfig.getString("title");
+                    String previewTitle = operationConfig.getString("title") + "|" + date;
                     JSONArray actionTitle = new JSONArray(operationConfig.getString("actionTitle"));
                     for (int k = 0; k < actionTitle.length(); k++) {
                         JSONObject joActionTitle = actionTitle.getJSONObject(k);
@@ -1181,7 +1168,6 @@ public class AntFarm extends ModelTask {
                     }
                 }
             }
-
             DataCache.INSTANCE.saveData(FARM_ANSWER_CACHE_KEY, farmAnswerCache);
         } catch (Exception e) {
             Log.printStackTrace(TAG, "updateTomorrowAnswerCache 错误:", e);
@@ -1192,44 +1178,30 @@ public class AntFarm extends ModelTask {
     /**
      * 清理缓存超过7天的B答案
      */
-    private void cleanOldAnswers() {
+    private void cleanOldAnswers(Map<String, String> farmAnswerCache, String today) {
         try {
-            Map<String, String> farmAnswerCache = DataCache.INSTANCE.getData(FARM_ANSWER_CACHE_KEY, new HashMap<>());
             if (farmAnswerCache == null || farmAnswerCache.isEmpty()) return;
-
-            // 获取当前日期字符串，格式 "yyyy-MM-dd"
-            String todayStr = TimeUtil.getDateStr(); // 示例返回："2025-04-05"
-
             // 将今天日期转为数字格式：20250405
-            int todayInt = convertDateToInt(todayStr); // 如 "2025-04-05" → 20250405
-
+            int todayInt = convertDateToInt(today); // 如 "2025-04-05" → 20250405
             // 设置保留天数（例如7天）
             int daysToKeep = 7;
-
             Map<String, String> cleanedMap = new HashMap<>();
-
             for (Map.Entry<String, String> entry : farmAnswerCache.entrySet()) {
                 String key = entry.getKey();
                 if (key.contains("|")) {
                     String[] parts = key.split("\\|", 2);
                     if (parts.length == 2) {
-                        String dateStr = parts[1];
+                        String dateStr = parts[1];//获取日期部分
                         int dateInt = convertDateToInt(dateStr);
-
-                        // 如果无法解析日期，跳过该条目
                         if (dateInt == -1) continue;
-
-                        // 只保留最近 N 天内的记录
                         if (todayInt - dateInt <= daysToKeep) {
-                            cleanedMap.put(entry.getKey(), entry.getValue());
+                            cleanedMap.put(entry.getKey(), entry.getValue());//保存7天内的答案
                         }
                     }
                 } else {
-                    // 没有日期信息的老数据也保留
-                    cleanedMap.put(entry.getKey(), entry.getValue());
+                    cleanedMap.put(entry.getKey(), entry.getValue());//保存没有日期的答案
                 }
             }
-
             DataCache.INSTANCE.saveData(FARM_ANSWER_CACHE_KEY, cleanedMap);
         } catch (Exception e) {
             Log.printStackTrace(TAG, "cleanOldAnswers error:", e);
@@ -1466,12 +1438,13 @@ public class AntFarm extends ModelTask {
         return false;
     }
 
+    /**
+     * 加载持有道具信息
+     */
     private void listFarmTool() {
         try {
-            String s = AntFarmRpcCall.listFarmTool();
-            JSONObject jo = new JSONObject(s);
-            String memo = jo.getString("memo");
-            if ("SUCCESS".equals(memo)) {
+            JSONObject jo = new JSONObject(AntFarmRpcCall.listFarmTool());
+            if (ResChecker.checkRes(jo)) {
                 JSONArray jaToolList = jo.getJSONArray("toolList");
                 farmTools = new FarmTool[jaToolList.length()];
                 for (int i = 0; i < jaToolList.length(); i++) {
@@ -1482,16 +1455,17 @@ public class AntFarm extends ModelTask {
                     farmTools[i].toolCount = jo.getInt("toolCount");
                     farmTools[i].toolHoldLimit = jo.optInt("toolHoldLimit", 20);
                 }
-            } else {
-                Log.record(memo);
-                Log.runtime(s);
             }
         } catch (Throwable t) {
-            Log.runtime(TAG, "listFarmTool err:");
-            Log.printStackTrace(TAG, t);
+            Log.printStackTrace(TAG, "listFarmTool err:", t);
         }
     }
 
+    /**
+     * 连续使用加速卡
+     *
+     * @return true: 使用成功，false: 使用失败
+     */
     private Boolean useAccelerateTool() {
         if (!Status.canUseAccelerateTool()) {
             return false;
@@ -2597,7 +2571,7 @@ public class AntFarm extends ModelTask {
         String[] nickNames = {"不开启", "一次", "当月", "所有"};
     }
 
-    public enum AnimalBuff {
+    public enum AnimalBuff {//小鸡buff
         ACCELERATING, INJURED, NONE
     }
 

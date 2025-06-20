@@ -202,8 +202,7 @@ public class AntFarmRpcCall {
     }
 
     public static String listFarmTool() {
-        String args1 = "[{\"requestType\":\"NORMAL\",\"sceneCode\":\"ANTFARM\",\"source\":\"H5\",\"version\":\""
-                + VERSION + "\"}]";
+        String args1 = "[{\"requestType\":\"NORMAL\",\"sceneCode\":\"ANTFARM\",\"source\":\"H5\",\"version\":\"" + VERSION + "\"}]";
         return RequestManager.requestString("com.alipay.antfarm.listFarmTool", args1);
     }
 

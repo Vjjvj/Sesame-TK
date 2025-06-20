@@ -4,7 +4,7 @@
     <item android:state_pressed="true">
         <shape>
             <solid android:color="@color/button_pressed" />
-            <corners android:radius="10dp" />
+            <corners android:radius="18dp" />
         </shape>
     </item>
     <item>

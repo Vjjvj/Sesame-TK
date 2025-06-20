@@ -11,7 +11,7 @@
         android:layout_height="wrap_content"
         android:visibility="visible">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_select_invert"
             android:textColor="@color/selection_color"
             android:layout_width="wrap_content"
@@ -23,7 +23,7 @@
             android:text="@string/select_invert"
             android:textAllCaps="false" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_select_all"
             android:textColor="@color/selection_color"
             android:layout_width="wrap_content"
@@ -60,7 +60,7 @@
             android:hint="@string/search"
             android:minHeight="48dp" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/selection_color"
@@ -71,7 +71,7 @@
             android:id="@+id/btn_find_last"
             android:padding="12dp" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/selection_color"
